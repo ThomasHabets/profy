@@ -1,0 +1,25 @@
+#!/bin/sh
+
+OUTSIDE="eth0"
+INSIDE="eth1"
+#
+# Iptables
+#
+iptables -P FORWARD DROP
+iptables -F FORWARD
+iptables -A FORWARD -i $INSIDE -o $OUTSIDE -j REJECT
+iptables -A FORWARD -i $INSIDE -o tun+ -j ACCEPT
+
+iptables -P INPUT DROP
+iptables -F INPUT
+iptables -A INPUT -i $OUTSIDE -p udp --dport 67 -j ACCEPT
+iptables -A INPUT -i $OUTSIDE -p udp --dport 68 -j ACCEPT
+iptables -A INPUT -i $OUTSIDE -p icmp --icmp-type echo-request -j ACCEPT
+iptables -A INPUT -i $OUTSIDE -m state --state ESTABLISHED -j ACCEPT
+
+iptables -P OUTPUT DROP
+iptables -F OUTPUT
+iptables -A OUTPUT -j ACCEPT
+
+# Enable forwarding.
+sysctl -w net.ipv4.conf.all.forwarding=1

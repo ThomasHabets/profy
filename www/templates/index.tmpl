@@ -1,4 +1,4 @@
-$def with (logfiles)
+$def with (logfiles, cmds)
 
 <head>
   <script src="//ajax.googleapis.com/ajax/libs/jquery/1.2.6/jquery.min.js"
@@ -8,6 +8,15 @@ $def with (logfiles)
         href="/static/profy.css"
         media="screen"/>
 </head>
+<select id='cmd'>
+	$for cmd in cmds:
+		<option value="$cmd">$cmd</option>
+</select>
+<br/>
+<iframe id='cmdcontents'></iframe>
+<br/>
+
+
 <select id='logfile'>
 	$for logfile in logfiles:
 		<option value="$logfile">$logfile</option>

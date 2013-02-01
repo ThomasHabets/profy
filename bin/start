@@ -12,14 +12,24 @@ iptables -A FORWARD -i $INSIDE -o tun+ -j ACCEPT
 
 iptables -P INPUT DROP
 iptables -F INPUT
+iptables -A INPUT -i lo -j ACCEPT
+iptables -A INPUT -p icmp -m state --state RELATED -j ACCEPT
+iptables -A INPUT -m state --state ESTABLISHED -j ACCEPT
 iptables -A INPUT -i $OUTSIDE -p udp --dport 67 -j ACCEPT
 iptables -A INPUT -i $OUTSIDE -p udp --dport 68 -j ACCEPT
 iptables -A INPUT -i $OUTSIDE -p icmp --icmp-type echo-request -j ACCEPT
-iptables -A INPUT -i $OUTSIDE -m state --state ESTABLISHED -j ACCEPT
+
+# Debug. Change to "inside".
+iptables -A INPUT -p tcp --dport 22 -j ACCEPT
+iptables -A INPUT -p tcp --dport 8080 -j ACCEPT
 
 iptables -P OUTPUT DROP
 iptables -F OUTPUT
+iptables -A OUTPUT -o lo -j ACCEPT
 iptables -A OUTPUT -j ACCEPT
+
 
 # Enable forwarding.
 sysctl -w net.ipv4.conf.all.forwarding=1
+
+mkdir -p ../log

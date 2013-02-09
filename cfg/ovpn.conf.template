@@ -1,0 +1,19 @@
+client
+proto udp
+dev tun
+# remote x.x.x.x 1194
+keepalive 10 120
+passtos
+persist-key
+persist-tun
+redirect-gateway def1
+
+# Cert stuff
+cd /.../profy/cfg
+ca root.crt
+cert foo.crt
+key foo.key
+# dh /etc/openvpn/dh1024.pem
+
+log ../log/openvpn.log
+status ../log/openvpn-status.log

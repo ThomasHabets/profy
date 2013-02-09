@@ -1,35 +1,70 @@
 #!/bin/sh
 
-OUTSIDE="eth0"
-INSIDE="eth1"
+set -e
+
+OUTSIDES="eth1 eth2 eth3 eth4 eth5"
+INSIDE="eth0"
+TUN="tun+"
+
 #
 # Iptables
 #
+iptables -N reject 2>/dev/null || iptables -F reject
+iptables -A reject -p tcp -j REJECT --reject-with tcp-reset
+iptables -A reject -p udp -j REJECT --reject-with port-unreach
+iptables -A reject -p icmp -j DROP
+iptables -A reject -j DROP
+
 iptables -P FORWARD DROP
 iptables -F FORWARD
-iptables -A FORWARD -i $INSIDE -o $OUTSIDE -j REJECT
-iptables -A FORWARD -i $INSIDE -o tun+ -j ACCEPT
+iptables -A FORWARD -p icmp -m state --state RELATED -j ACCEPT
+iptables -A FORWARD -m state --state ESTABLISHED -j ACCEPT
+iptables -A FORWARD -i $INSIDE -o $TUN -j ACCEPT
+iptables -A FORWARD -j reject
+
+iptables -N input_outside 2>/dev/null || iptables -F input_outside
+iptables -A input_outside -p udp --dport 67 -j ACCEPT
+iptables -A input_outside -p udp --dport 68 -j ACCEPT
+iptables -A input_outside -p icmp --icmp-type echo-request -j ACCEPT
+
+iptables -N input_inside 2>/dev/null || iptables -F input_inside
+iptables -A input_inside -p tcp --dport 22 -j ACCEPT
+iptables -A input_inside -p tcp --dport 8080 -j ACCEPT
+iptables -A input_inside -p icmp -j ACCEPT
 
 iptables -P INPUT DROP
 iptables -F INPUT
 iptables -A INPUT -i lo -j ACCEPT
 iptables -A INPUT -p icmp -m state --state RELATED -j ACCEPT
 iptables -A INPUT -m state --state ESTABLISHED -j ACCEPT
-iptables -A INPUT -i $OUTSIDE -p udp --dport 67 -j ACCEPT
-iptables -A INPUT -i $OUTSIDE -p udp --dport 68 -j ACCEPT
-iptables -A INPUT -i $OUTSIDE -p icmp --icmp-type echo-request -j ACCEPT
-
-# Debug. Change to "inside".
-iptables -A INPUT -p tcp --dport 22 -j ACCEPT
-iptables -A INPUT -p tcp --dport 8080 -j ACCEPT
+for OUT in $OUTSIDES; do
+    iptables -A INPUT -i $OUT -j input_outside
+done
+iptables -A INPUT -i $INSIDE -j input_inside
+iptables -A INPUT -j reject
 
 iptables -P OUTPUT DROP
 iptables -F OUTPUT
 iptables -A OUTPUT -o lo -j ACCEPT
 iptables -A OUTPUT -j ACCEPT
+iptables -A OUTPUT -j reject
 
+
+# NAT
+iptables -t nat -F PREROUTING
+iptables -t nat -F POSTROUTING
+iptables -t nat -A POSTROUTING -o $TUN -j MASQUERADE
+
+iptables -t nat -F OUTPUT
 
 # Enable forwarding.
-sysctl -w net.ipv4.conf.all.forwarding=1
+sysctl -q -w net.ipv4.conf.all.forwarding=1
 
-mkdir -p ../log
+mkdir -p $(dirname $0)/../log
+
+# For communicating with VPN endpoint.
+export INSIDE
+export OUTSIDES
+export TUN
+EXTRA=$(dirname $0)/../cfg/extra-fwrules.sh
+[ -x "$EXTRA" ] && "$EXTRA"
